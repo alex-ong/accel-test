@@ -7,8 +7,8 @@
 </head>
 <body>
     <video id="webcam" autoplay playsinline></video>
-    <canvas id="outputCanvas" width="100" height="10"></canvas>
-    <canvas id="outputCanvas2" width="100" height="10"></canvas>
+    <canvas id="outputCanvas" width="200" height="100"></canvas>
+    <canvas id="outputCanvas2" width="200" height="100"></canvas>
 
     <script id="vertexShader" type="x-shader/x-vertex">
         attribute vec2 a_position;
@@ -22,33 +22,33 @@
 
 
     <script id="fragmentShader" type="x-shader/x-fragment">
-        precision mediump float;
-        varying vec2 v_texCoord;
-        uniform sampler2D u_inputTexture;
-        uniform vec2 u_inputSize;
-        uniform vec2 u_outputSize;
+		precision mediump float;
+		varying vec2 v_texCoord;
+		uniform sampler2D u_inputTexture;
+		uniform vec2 u_inputSize;
+		uniform vec2 u_outputSize;
 
-        void main() {
-            // Calculate the coordinates in the input texture
-            vec2 inputCoord = v_texCoord * u_outputSize / u_inputSize;
+		void main() {
+			// Calculate the scaling factor for the offset
+			vec2 scale = u_inputSize / u_outputSize;
 
-            // Sample the input texture
-            vec4 color = texture2D(u_inputTexture, inputCoord);
+			// Calculate the offset to center the output
+			vec2 offset = (u_inputSize - u_outputSize) / 2.0;
 
-            gl_FragColor = color;
-        }
+			// Calculate the coordinates in the input texture
+			vec2 inputCoord = v_texCoord * scale * u_outputSize + offset;
+
+			// Sample the input texture at the calculated coordinates
+			vec4 color = texture2D(u_inputTexture, inputCoord / u_inputSize);
+
+			gl_FragColor = color;
+		}
     </script>
 
 
 
     <script>
-		const constraints = {
-			video: {
-				width: { ideal: 4096 },
-				height: { ideal: 4096 },
-			}
-		};
-        const video = document.getElementById('webcam');
+		
         const canvas = document.getElementById('outputCanvas');
         const gl = canvas.getContext('webgl');
 
@@ -56,6 +56,14 @@
             alert('WebGL not supported, please use a browser that supports WebGL.');
         }
 
+		const constraints = {
+			video: {
+				width: { ideal: 4096 },
+				height: { ideal: 4096 },
+			}
+		};
+        const video = document.getElementById('webcam');
+		
         navigator.mediaDevices.getUserMedia(constraints)
             .then((stream) => {
                 video.srcObject = stream;
@@ -88,9 +96,9 @@
         gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-        const inputTexture = createAndSetupTexture(gl, 4096, 4096);
-        const outputTexture = createAndSetupTexture(gl, 100, 10);
+		
+        const inputTexture = createAndSetupTexture(gl, video.videoWidth, video.videoHeight);
+        const outputTexture = createAndSetupTexture(gl, 200, 100);
 
         const framebuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
