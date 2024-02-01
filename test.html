@@ -22,49 +22,49 @@
 
 
     <script id="fragmentShader" type="x-shader/x-fragment">
-		precision mediump float;
-		varying vec2 v_texCoord;
-		uniform sampler2D u_inputTexture;
-		uniform vec2 u_inputSize;
-		uniform vec2 u_outputSize;
+        precision mediump float;
+        varying vec2 v_texCoord;
+        uniform sampler2D u_inputTexture;
+        uniform vec2 u_inputSize;
+        uniform vec2 u_outputSize;
 
-		void main() {
-			// Calculate the scaling factor for the offset
-			vec2 scale = u_inputSize / u_outputSize;
+        void main() {
+            // Calculate the scaling factor for the offset
+            vec2 scale = u_inputSize / u_outputSize;
 
-			// Calculate the offset to center the output
-			vec2 offset = (u_inputSize - u_outputSize) / 2.0;
+            // Calculate the offset to center the output
+            vec2 offset = (u_inputSize - u_outputSize) / 2.0;
 
-			// Calculate the coordinates in the input texture
-			vec2 inputCoord = v_texCoord * scale * u_outputSize + offset;
+            // Calculate the coordinates in the input texture
+            vec2 inputCoord = v_texCoord * scale * u_outputSize + offset;
 
-			// Sample the input texture at the calculated coordinates
-			vec4 color = texture2D(u_inputTexture, inputCoord / u_inputSize);
+            // Sample the input texture at the calculated coordinates
+            vec4 color = texture2D(u_inputTexture, inputCoord / u_inputSize);
 
-			gl_FragColor = color;
-		}
+            gl_FragColor = color;
+        }
     </script>
 
 
 
     <script>
-		
+        
         const canvas = document.getElementById('outputCanvas');
         const gl = canvas.getContext('webgl');
-		const outputWidth = 200;
-		const outputHeight = 100;
+        const outputWidth = 200;
+        const outputHeight = 100;
         if (!gl) {
             alert('WebGL not supported, please use a browser that supports WebGL.');
         }
 
-		const constraints = {
-			video: {
-				width: { ideal: 4096 },
-				height: { ideal: 4096 },
-			}
-		};
+        const constraints = {
+            video: {
+                width: { ideal: 4096 },
+                height: { ideal: 4096 },
+            }
+        };
         const video = document.getElementById('webcam');
-		
+        
         navigator.mediaDevices.getUserMedia(constraints)
             .then((stream) => {
                 video.srcObject = stream;
@@ -97,7 +97,7 @@
         gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
 
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-		
+        
         const inputTexture = createAndSetupTexture(gl, video.videoWidth, video.videoHeight);
         const outputTexture = createAndSetupTexture(gl, outputWidth, outputHeight);
 
@@ -117,10 +117,10 @@
         }
 
         function render() {
-			if (video.videoWidth <= 0 || video.videoHeight <= 0) {
-				requestAnimationFrame(render);
-				return;
-			}
+            if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+                requestAnimationFrame(render);
+                return;
+            }
             gl.clear(gl.COLOR_BUFFER_BIT);
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -129,10 +129,10 @@
             gl.uniform1i(textureLocation, 0);
             gl.uniform2f(inputSizeLocation, video.videoWidth, video.videoHeight);
             gl.uniform2f(outputSizeLocation, outputWidth, outputHeight);
-			gl.useProgram(program);
+            gl.useProgram(program);
             // Update the input texture with webcam video frame
             gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, inputTexture);			
+            gl.bindTexture(gl.TEXTURE_2D, inputTexture);            
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -149,9 +149,9 @@
 
             if (ctx2D) {
                 ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
-				console.time('test');				
+                console.time('test');                
                 ctx2D.putImageData(imageData, 0, 0);
-				console.timeEnd('test');
+                console.timeEnd('test');
             } else {
                 console.error('2D Canvas or context is null.');
             }
