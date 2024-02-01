@@ -51,7 +51,8 @@
 		
         const canvas = document.getElementById('outputCanvas');
         const gl = canvas.getContext('webgl');
-
+		const outputWidth = 200;
+		const outputHeight = 100;
         if (!gl) {
             alert('WebGL not supported, please use a browser that supports WebGL.');
         }
@@ -98,7 +99,7 @@
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 		
         const inputTexture = createAndSetupTexture(gl, video.videoWidth, video.videoHeight);
-        const outputTexture = createAndSetupTexture(gl, 200, 100);
+        const outputTexture = createAndSetupTexture(gl, outputWidth, outputHeight);
 
         const framebuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -127,7 +128,7 @@
             
             gl.uniform1i(textureLocation, 0);
             gl.uniform2f(inputSizeLocation, video.videoWidth, video.videoHeight);
-            gl.uniform2f(outputSizeLocation, 100, 10);
+            gl.uniform2f(outputSizeLocation, outputWidth, outputHeight);
 			gl.useProgram(program);
             // Update the input texture with webcam video frame
             gl.activeTexture(gl.TEXTURE0);
@@ -135,12 +136,12 @@
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-            const pixels = new Uint8Array(100 * 10 * 4); // Assuming 4 channels (RGBA)
-            gl.readPixels(0, 0, 100, 10, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            const pixels = new Uint8Array(outputWidth * outputHeight * 4); // Assuming 4 channels (RGBA)
+            gl.readPixels(0, 0, outputWidth, outputHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
             // Create an ImageData object with a Uint8ClampedArray
             const clampedArray = new Uint8ClampedArray(pixels);
-            const imageData = new ImageData(clampedArray, 100, 10);
+            const imageData = new ImageData(clampedArray, outputWidth, outputHeight);
 
             // Render the pixels to the 2D canvas
             const canvas2D = document.getElementById('outputCanvas2');
@@ -148,7 +149,9 @@
 
             if (ctx2D) {
                 ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+				console.time('test');				
                 ctx2D.putImageData(imageData, 0, 0);
+				console.timeEnd('test');
             } else {
                 console.error('2D Canvas or context is null.');
             }
