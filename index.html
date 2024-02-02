@@ -1,271 +1,313 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Webcam to Canvas with WebGL 1.0</title>
-</head>
+  </head>
 
-<body>
+  <body>
     <select id="videoSource"></select>
     <video id="webcam" autoplay playsinline></video>
     <canvas id="outputCanvas" width="400" height="200"></canvas>
     <canvas id="outputCanvas2" width="400" height="200"></canvas>
 
-    <script id="vertexShader" type="x-shader/x-vertex">
-        attribute vec2 a_position;
-        varying vec2 v_texCoord;
-
-        void main() {
-            gl_Position = vec4(a_position, 0.0, 1.0);
-            v_texCoord = (a_position + 1.0) / 2.0;
-        }
-    </script>
-
-    <script id="fragmentShader" type="x-shader/x-fragment">
-        precision mediump float;
-        varying vec2 v_texCoord;
-        uniform sampler2D u_inputTexture;
-        uniform vec2 u_inputSize;
-        uniform vec2 u_outputSize;
-
-        void main() {
-            float Pixels = 500.0;
-            float dx = 15.0 * (1.0 / Pixels);
-            float dy = 10.0 * (1.0 / Pixels);
-            vec2 Coord = vec2(dx * floor(v_texCoord.x / dx),
-                            dy * floor(v_texCoord.y / dy));
-            vec4 color = texture2D(u_inputTexture, Coord);
-            gl_FragColor = color;
-        }
-    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment"></script>
 
     <script>
-        var video = document.getElementById('webcam');
-        var videoSelect = document.getElementById('videoSource');
+      var video = document.getElementById("webcam");
+      var videoSelect = document.getElementById("videoSource");
 
-        videoSelect.onchange = getStream;
+      videoSelect.onchange = getStream;
 
-        fixStream().then(getDevices).then(gotDevices);
+      getStream().then(getDevices).then(gotDevices);
 
-        function getDevices() {
-            // AFAICT in Safari this only gets default devices until gUM is called :/
-            return navigator.mediaDevices.enumerateDevices();
+      function getDevices() {
+        // AFAICT in Safari this only gets default devices until gUM is called :/
+        return navigator.mediaDevices.enumerateDevices();
+      }
+
+      function gotDevices(deviceInfos) {
+        window.deviceInfos = deviceInfos; // make available to console
+        console.log("Available input and output devices:", deviceInfos);
+        for (const deviceInfo of deviceInfos) {
+          const option = document.createElement("option");
+          option.value = deviceInfo.deviceId;
+          if (deviceInfo.kind === "videoinput") {
+            option.text =
+              deviceInfo.label || `Camera ${videoSelect.length + 1}`;
+            videoSelect.appendChild(option);
+          }
         }
+      }
 
-        function gotDevices(deviceInfos) {
-            window.deviceInfos = deviceInfos; // make available to console
-            console.log('Available input and output devices:', deviceInfos);
-            for (const deviceInfo of deviceInfos) {
-                const option = document.createElement('option');
-                option.value = deviceInfo.deviceId;
-                if (deviceInfo.kind === 'videoinput') {
-                    option.text = deviceInfo.label || `Camera ${videoSelect.length + 1}`;
-                    videoSelect.appendChild(option);
-                }
-            }
+      function getStream() {
+        if (window.stream) {
+          window.stream.getTracks().forEach((track) => {
+            track.stop();
+          });
         }
+        const videoSource = videoSelect.value;
+        const constraints = {
+          video: { deviceId: videoSource ? { exact: videoSource } : undefined },
+        };
+        return navigator.mediaDevices
+          .getUserMedia(constraints)
+          .then(gotStream)
+          .catch(handleError);
+      }
 
-        function fixStream() {
-            const constraints = {
-                video: { deviceId: videoSource ? { exact: videoSource } : undefined }
-            };
-            return navigator.mediaDevices.getUserMedia(constraints).
-                then(gotStream).catch(handleError);
-        }
+      function gotStream(stream) {
+        window.stream = stream; // make stream available to console
+        videoSelect.selectedIndex = [...videoSelect.options].findIndex(
+          (option) => option.text === stream.getVideoTracks()[0].label
+        );
+        video.srcObject = stream;
+      }
 
-        function getStream() {
-            if (window.stream) {
-                window.stream.getTracks().forEach(track => {
-                    track.stop();
-                });
-            }
-            const videoSource = videoSelect.value;
-            const constraints = {
-                video: { deviceId: videoSource ? { exact: videoSource } : undefined, }
-            };
-            return navigator.mediaDevices.getUserMedia(constraints).
-                then(gotStream).catch(handleError);
-        }
+      function handleError(error) {
+        console.error("Error: ", error);
+      }
 
-        function gotStream(stream) {
-            window.stream = stream; // make stream available to console
-            videoSelect.selectedIndex = [...videoSelect.options].
-                findIndex(option => option.text === stream.getVideoTracks()[0].label);
-            video.srcObject = stream;
-        }
+      const canvas = document.getElementById("outputCanvas");
+      const gl = canvas.getContext("webgl2");
+      const outputWidth = 400;
+      const outputHeight = 200;
 
-        function handleError(error) {
-            console.error('Error: ', error);
-        }
+      if (!gl) {
+        alert("WebGL not supported, please use a browser that supports WebGL.");
+      }
 
-        const canvas = document.getElementById('outputCanvas');
-        const gl = canvas.getContext('webgl2');
-        const outputWidth = 400;
-        const outputHeight = 200;
+      async function loadShaders() {
+        const vertexShaderSource = await fetch("shaders/vertex.glsl").then(
+          (result) => result.text()
+        );
+        const fragmentShaderSource = await fetch("shaders/fragment.glsl").then(
+          (result) => result.text()
+        );
+        runDemo(vertexShaderSource, fragmentShaderSource);
+      }
 
-        if (!gl) {
-            alert('WebGL not supported, please use a browser that supports WebGL.');
-        }
+      var demoData = {
+        program: null,
+        positionAttributeLocation: null,
+        textureLocation: null,
+        inputSizeLocation: null,
+        outputSizeLocation: null,
+        outputTexture: null,
+      };
 
+      function runDemo(vertexSrc, fragmentSrc) {
+        console.log("rd");
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSrc);
+        const fragmentShader = createShader(
+          gl,
+          gl.FRAGMENT_SHADER,
+          fragmentSrc
+        );
 
-
-        const vertexShaderSource = document.getElementById('vertexShader').textContent;
-        const fragmentShaderSource = document.getElementById('fragmentShader').textContent;
-
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-        const program = createProgram(gl, vertexShader, fragmentShader);
-
-        const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
-        const textureLocation = gl.getUniformLocation(program, 'u_inputTexture');
-        const inputSizeLocation = gl.getUniformLocation(program, 'u_inputSize');
-        const outputSizeLocation = gl.getUniformLocation(program, 'u_outputSize');
-
+        demoData.program = createProgram(gl, vertexShader, fragmentShader);
+        demoData.positionAttributeLocation = gl.getAttribLocation(
+          demoData.program,
+          "a_position"
+        );
+        demoData.textureLocation = gl.getUniformLocation(
+          demoData.program,
+          "u_inputTexture"
+        );
+        demoData.inputSizeLocation = gl.getUniformLocation(
+          demoData.program,
+          "u_inputSize"
+        );
+        demoData.outputSizeLocation = gl.getUniformLocation(
+          demoData.program,
+          "u_outputSize"
+        );
+        console.log(demoData.textureLocation);
         const positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
         gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
 
-        const outputTexture = createAndSetupTexture(gl, outputWidth, outputHeight);
+        demoData.outputTexture = createAndSetupTexture(
+          gl,
+          outputWidth,
+          outputHeight
+        );
+      }
 
-        //const framebuffer = gl.createFramebuffer();
-        //gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-        //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outputTexture, 0);
-
-        //const fbo = gl.createFramebuffer();
-        //gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo)
-
-        function createAndSetupTexture(gl, width, height) {
-            const texture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            return texture;
+      function render() {
+        if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+          requestAnimationFrame(render);
+          return;
         }
+        if (demoData.outputTexture === null) {
+          requestAnimationFrame(render);
+          return;
+        }
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-        function render() {
-            if (video.videoWidth <= 0 || video.videoHeight <= 0) {
-                requestAnimationFrame(render);
-                return;
+        gl.useProgram(demoData.program);
+        gl.enableVertexAttribArray(demoData.positionAttributeLocation);
+        gl.vertexAttribPointer(
+          demoData.positionAttributeLocation,
+          2,
+          gl.FLOAT,
+          false,
+          0,
+          0
+        );
+
+        gl.uniform1i(demoData.textureLocation, 0);
+        gl.uniform2f(
+          demoData.inputSizeLocation,
+          video.videoWidth,
+          video.videoHeight
+        );
+        gl.uniform2f(demoData.outputSizeLocation, outputWidth, outputHeight);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, demoData.outputTexture);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          video
+        );
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        // Perform asynchronous readPixels
+        const pixels = new Uint8Array(outputWidth * outputHeight * 4);
+        readPixelsAsync(gl, outputWidth, outputHeight, pixels).then(
+          (resultPixels) => {
+            // Continue processing the pixels as needed
+            // For demonstration, just log the resultPixels
+            //console.log(resultPixels);
+            const canvas2D = document.getElementById("outputCanvas2");
+            const ctx2D = canvas2D.getContext("2d");
+
+            if (ctx2D) {
+              const clampedArray = new Uint8ClampedArray(resultPixels);
+              const imageData = new ImageData(
+                clampedArray,
+                outputWidth,
+                outputHeight
+              );
+              ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+              ctx2D.putImageData(imageData, 0, 0);
+            } else {
+              console.error("2D Canvas or context is null.");
             }
-
-            gl.clear(gl.COLOR_BUFFER_BIT);
-
-            gl.useProgram(program);
-            gl.enableVertexAttribArray(positionAttributeLocation);
-            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-            gl.uniform1i(textureLocation, 0);
-            gl.uniform2f(inputSizeLocation, video.videoWidth, video.videoHeight);
-            gl.uniform2f(outputSizeLocation, outputWidth, outputHeight);
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, outputTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-            // Perform asynchronous readPixels
-            const pixels = new Uint8Array(outputWidth * outputHeight * 4);
-            readPixelsAsync(gl, outputWidth, outputHeight, pixels)
-                .then((resultPixels) => {
-                    // Continue processing the pixels as needed
-                    // For demonstration, just log the resultPixels
-                    //console.log(resultPixels);
-                    const canvas2D = document.getElementById('outputCanvas2');
-                    const ctx2D = canvas2D.getContext('2d');
-
-                    if (ctx2D) {
-                        const clampedArray = new Uint8ClampedArray(resultPixels);
-                        const imageData = new ImageData(clampedArray, outputWidth, outputHeight);
-                        ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
-                        ctx2D.putImageData(imageData, 0, 0);
-                    } else {
-                        console.error('2D Canvas or context is null.');
-                    }
-                });
-
-            requestAnimationFrame(render);
-        }
-
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-
-            return shader;
-        }
-
-        function createProgram(gl, vertexShader, fragmentShader) {
-            const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
-
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.error('Program linking error:', gl.getProgramInfoLog(program));
-                gl.deleteProgram(program);
-                return null;
-            }
-
-            return program;
-        }
-
-        function readPixelsAsync(gl, width, height, buffer) {
-            return new Promise((resolve) => {
-                const bufpak = gl.createBuffer();
-                gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
-                gl.bufferData(gl.PIXEL_PACK_BUFFER, buffer.byteLength, gl.STREAM_READ);
-                gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-
-                const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-                gl.flush();
-
-                clientWaitAsync(gl, sync, 0, 10)
-                    .then(() => {
-                        gl.deleteSync(sync);
-                        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
-                        gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, buffer);
-                        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-                        gl.deleteBuffer(bufpak);
-
-                        resolve(new Uint8Array(buffer));
-                    });
-            });
-        }
-
-        function clientWaitAsync(gl, sync, flags = 0, interval_ms = 10) {
-            return new Promise((resolve, reject) => {
-                const check = () => {
-                    const res = gl.clientWaitSync(sync, flags, 0);
-                    if (res == gl.WAIT_FAILED) {
-                        reject();
-                        return;
-                    }
-                    if (res == gl.TIMEOUT_EXPIRED) {
-                        setTimeout(check, interval_ms);
-                        return;
-                    }
-                    resolve();
-                };
-                check();
-            });
-        }
+          }
+        );
 
         requestAnimationFrame(render);
-    </script>
-</body>
+      }
 
+      function createAndSetupTexture(gl, width, height) {
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          width,
+          height,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          null
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return texture;
+      }
+
+      function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          console.error(
+            "Shader compilation error:",
+            gl.getShaderInfoLog(shader)
+          );
+          gl.deleteShader(shader);
+          return null;
+        }
+
+        return shader;
+      }
+
+      function createProgram(gl, vertexShader, fragmentShader) {
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          console.error(
+            "Program linking error:",
+            gl.getProgramInfoLog(program)
+          );
+          gl.deleteProgram(program);
+          return null;
+        }
+
+        return program;
+      }
+
+      function readPixelsAsync(gl, width, height, buffer) {
+        return new Promise((resolve) => {
+          const bufpak = gl.createBuffer();
+          gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
+          gl.bufferData(
+            gl.PIXEL_PACK_BUFFER,
+            buffer.byteLength,
+            gl.STREAM_READ
+          );
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+
+          const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+          gl.flush();
+
+          clientWaitAsync(gl, sync, 0, 10).then(() => {
+            gl.deleteSync(sync);
+            gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
+            gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, buffer);
+            gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+            gl.deleteBuffer(bufpak);
+
+            resolve(new Uint8Array(buffer));
+          });
+        });
+      }
+
+      function clientWaitAsync(gl, sync, flags = 0, interval_ms = 10) {
+        return new Promise((resolve, reject) => {
+          const check = () => {
+            const res = gl.clientWaitSync(sync, flags, 0);
+            if (res == gl.WAIT_FAILED) {
+              reject();
+              return;
+            }
+            if (res == gl.TIMEOUT_EXPIRED) {
+              setTimeout(check, interval_ms);
+              return;
+            }
+            resolve();
+          };
+          check();
+        });
+      }
+      loadShaders();
+      requestAnimationFrame(render);
+    </script>
+  </body>
 </html>
