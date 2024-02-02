@@ -211,21 +211,6 @@ vec2 prev_offset3() {
                 myLerp(preview_top_y, preview_bottom_y, 0.875) / 224.0);
 }
 
-vec4 blockTex(bool white, vec2 uv, vec4 base) {
-    if (!white) {
-        uv = vec2(uv.x / 2.0, uv.y);
-    } else {
-        uv = vec2(uv.x / 2.0 + 0.5, uv.y);
-    }
-
-    vec4 result = texture(u_inputTexture, uv);
-    if (result.a == 0.0) {
-        return base;
-    } else {
-        return result;
-    }
-}
-
 bool isWhite(vec4 rgba) {
     float limit = 0.6;
     return (rgba.r >= limit &&
@@ -347,14 +332,31 @@ vec4 sampleBlockStat(vec2 uv, vec2 pixelSize) {
     return avg;
 }
 
+float my_mod(float a, float b)
+{
+    return a - (b * floor(a/b));
+}
 
 
+vec4 drawBlock(vec2 uv, vec2 centre, float gridCornerX, float gridCornerY)
+{
+    float bw = blockWidth();
+    float bh = blockHeight();
 
+    float blockxUv = my_mod((uv.x - gridCornerX) * 256.0 , bw * 256.0) / (bw * 256.0);
+    float blockyUv = my_mod((uv.y - gridCornerY) * 224.0 , bh * 224.0) / (bh * 224.0);
+    vec2 pixelSize = pixelUV();
+    //float2 blockUv = float2(blockxUv,blockyUv);
+    vec4 avg = sampleBlock(centre, pixelSize);
+
+    //now we have two scenarios - centre is white, or not
+    return avg;
+}
 
 vec4 process(vec2 uv) {
-    
+
+    vec4 col = texture(u_inputTexture, uv);
     if (setup_mode) {
-        vec4 col = texture(u_inputTexture, uv);
         if (inBox(uv)) {
             return (vec4(0.0,1.0,0.0,1.0) + col)/2.0;
         } else {
@@ -362,102 +364,23 @@ vec4 process(vec2 uv) {
         }
     }
 
-    
     if (!inBox(uv)) {
-        return vec4(0.0, 0.0, 0.0, 0.0);
+        return col;
     }
+    
 
-    vec2 pixelSize = pixelUV();
-    vec4 centre = texture(u_inputTexture, uv);
-    vec4 edge = sampleEdge(uv, pixelSize);
+    float bw = blockWidth();
+    float bh = blockHeight();
 
-    vec4 result = centre;
+    float fblx = field_left_x/256.0;
+    float fbty = field_top_y /224.0;
 
-    if (sharpen_preview && inBox2(uv, preview_box())) {
-        vec4 edgeStat = sampleEdgeStat(uv, pixelSize);
-        float sharpen = 5.0;
-        result = mix(result, edgeStat, sharpen);
-    }
+    float centrexUv = floor((uv.x - fblx) / bw) * bw + fblx + bw/2.0;
+    float centreyUv = floor((uv.y - fbty) / bh) * bh + fbty + bh/2.0;
+    vec2 centre = vec2(centrexUv,centreyUv);
 
-    vec4 white = vec4(1.0, 1.0, 1.0, 1.0);
-    vec4 black = vec4(0.0, 0.0, 0.0, 1.0);
-    vec4 grey = vec4(0.5, 0.5, 0.5, 1.0);
+    return drawBlock(uv, centre, fblx, fbty);
 
-    vec4 c1 = palette1(pixelSize);
-    vec4 c2 = palette2(pixelSize);
-
-    bool isWhiteCentre = isWhite(centre);
-    bool isWhiteEdge = isWhite(edge);
-
-    bool isBlackCentre = isBlack(centre);
-    bool isBlackEdge = isBlack(edge);
-
-    bool isGreyCentre = isGrey(centre);
-    bool isGreyEdge = isGrey(edge);
-
-    bool isEdge = !isWhiteEdge && !isBlackEdge && !isGreyEdge;
-
-    // Apply palette colors to white blocks
-    if (isWhiteCentre) {
-        if (blockStatIsWhite(int(centre.r * 10.0))) {
-            if (isEdge) {
-                result = matchPalette(c1, c2, centre);
-            } else {
-                result = white;
-            }
-        }
-    }
-
-    // Apply palette colors to color1 blocks
-    if (blockStatIsCol1(int(centre.r * 10.0))) {
-        if (isEdge) {
-            result = matchPalette(c1, c2, centre);
-        } else {
-            result = c1;
-        }
-    }
-
-    // Apply palette colors to color2 blocks
-    if (blockStatIsCol2(int(centre.r * 10.0))) {
-        if (isEdge) {
-            result = matchPalette(c1, c2, centre);
-        } else {
-            result = c2;
-        }
-    }
-
-    // Convert grey blocks to white
-    if (isGreyCentre) {
-        result = white;
-    }
-
-    // Convert black blocks to black
-    if (isBlackCentre) {
-        result = black;
-    }
-
-    // Override palette colors in setup mode
-    if (setup_mode) {
-        if (inBox2(uv, paletteA1_box()) || inBox2(uv, paletteA2_box())) {
-            result = vec4(1.0, 0.0, 0.0, 1.0);
-        }
-        if (inBox2(uv, paletteB1_box()) || inBox2(uv, paletteB2_box())) {
-            result = vec4(0.0, 0.0, 1.0, 1.0);
-        }
-        if (inBox2(uv, gameBlack1_box()) || inBox2(uv, gameBlack2_box()) || inBox2(uv, gameGrey1_box())) {
-            result = grey;
-        }
-    }
-
-    // Detect game over and block preview
-    if (!skip_detect_game && isInGame(pixelSize)) {
-        result = black;
-    }
-    if (!skip_detect_game_over && isGameOver(pixelSize)) {
-        result = grey;
-    }
-
-    return result;
 }
 
 

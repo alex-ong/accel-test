@@ -9,8 +9,9 @@
   <body>
     <select id="videoSource"></select>
     <video id="webcam" autoplay playsinline></video>
-    <canvas id="outputCanvas" width="720" height="480"></canvas>
-    <canvas id="outputCanvas2" width="720" height="480"></canvas>
+    <!-- width/height need to match outputWidth and outputheight down below -->
+    <canvas hidden id="outputCanvas" width="360" height="224"></canvas>
+    <canvas id="outputCanvas2" width="360" height="224"></canvas>
 
     <script id="fragmentShader" type="x-shader/x-fragment"></script>
 
@@ -71,11 +72,11 @@
 
       const canvas = document.getElementById("outputCanvas");
       const gl = canvas.getContext("webgl2");
-      const outputWidth = 720;
-      const outputHeight = 480;
+      const outputWidth = 360;
+      const outputHeight = 224;
 
       if (!gl) {
-        alert("WebGL not supported, please use a browser that supports WebGL.");
+        alert("WebGL2 not supported, please change web-browser or gpu.");
       }
 
       async function loadShaders() {
@@ -98,7 +99,6 @@
       };
 
       function runDemo(vertexSrc, fragmentSrc) {
-        console.log("rd");
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSrc);
         const fragmentShader = createShader(
           gl,
@@ -241,7 +241,7 @@
         );
 
         // Set the uniform values
-        gl.uniform1i(setupModeLocation, 1); //setup mode true
+        gl.uniform1i(setupModeLocation, 0); //setup mode true
         gl.uniform1f(fieldLeftXLocation, 62);
         gl.uniform1f(fieldRightXLocation, 112.5);
         gl.uniform1f(fieldTopYLocation, 40);
