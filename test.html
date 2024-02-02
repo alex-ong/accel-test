@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webcam to Canvas with WebGL 1.0</title>
 </head>
+
 <body>
     <video id="webcam" autoplay playsinline></video>
-    <canvas id="outputCanvas" width="200" height="100"></canvas>
-    <canvas id="outputCanvas2" width="200" height="100"></canvas>
+    <canvas id="outputCanvas" width="400" height="200"></canvas>
+    <canvas id="outputCanvas2" width="400" height="200"></canvas>
 
     <script id="vertexShader" type="x-shader/x-vertex">
         attribute vec2 a_position;
@@ -28,10 +30,12 @@
         uniform vec2 u_outputSize;
 
         void main() {
-            vec2 scale = u_inputSize / u_outputSize;
-            vec2 offset = (u_inputSize - u_outputSize) / 2.0;
-            vec2 inputCoord = v_texCoord * scale * u_outputSize + offset;
-            vec4 color = texture2D(u_inputTexture, inputCoord / u_inputSize);
+            float Pixels = 500.0;
+            float dx = 15.0 * (1.0 / Pixels);
+            float dy = 10.0 * (1.0 / Pixels);
+            vec2 Coord = vec2(dx * floor(v_texCoord.x / dx),
+                            dy * floor(v_texCoord.y / dy));
+            vec4 color = texture2D(u_inputTexture, Coord);
             gl_FragColor = color;
         }
     </script>
@@ -39,8 +43,8 @@
     <script>
         const canvas = document.getElementById('outputCanvas');
         const gl = canvas.getContext('webgl2');
-        const outputWidth = 200;
-        const outputHeight = 100;
+        const outputWidth = 400;
+        const outputHeight = 200;
 
         if (!gl) {
             alert('WebGL not supported, please use a browser that supports WebGL.');
@@ -85,10 +89,10 @@
         //const framebuffer = gl.createFramebuffer();
         //gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         //gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outputTexture, 0);
-		
-		//const fbo = gl.createFramebuffer();
-		//gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo)
-		
+
+        //const fbo = gl.createFramebuffer();
+        //gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo)
+
         function createAndSetupTexture(gl, width, height) {
             const texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -121,29 +125,25 @@
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-			
+
             // Perform asynchronous readPixels
-			
             const pixels = new Uint8Array(outputWidth * outputHeight * 4);
-			
-			//todo need to fix this since buffers are wrong idk man.
-			
-			readPixelsAsync(gl, outputWidth, outputHeight, pixels)
+            readPixelsAsync(gl, outputWidth, outputHeight, pixels)
                 .then((resultPixels) => {
                     // Continue processing the pixels as needed
                     // For demonstration, just log the resultPixels
                     //console.log(resultPixels);
-					const canvas2D = document.getElementById('outputCanvas2');
-					const ctx2D = canvas2D.getContext('2d');
-					
-					if (ctx2D) {
-						const clampedArray = new Uint8ClampedArray(resultPixels);
-						const imageData = new ImageData(clampedArray, outputWidth, outputHeight);
-						ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
-						ctx2D.putImageData(imageData, 0, 0);
-					} else {
-						console.error('2D Canvas or context is null.');
-					}
+                    const canvas2D = document.getElementById('outputCanvas2');
+                    const ctx2D = canvas2D.getContext('2d');
+
+                    if (ctx2D) {
+                        const clampedArray = new Uint8ClampedArray(resultPixels);
+                        const imageData = new ImageData(clampedArray, outputWidth, outputHeight);
+                        ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+                        ctx2D.putImageData(imageData, 0, 0);
+                    } else {
+                        console.error('2D Canvas or context is null.');
+                    }
                 });
 
             requestAnimationFrame(render);
@@ -178,28 +178,28 @@
             return program;
         }
 
-		function readPixelsAsync(gl, width, height, buffer) {
-			return new Promise((resolve) => {
-				const bufpak = gl.createBuffer();
-				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
-				gl.bufferData(gl.PIXEL_PACK_BUFFER, buffer.byteLength, gl.STREAM_READ);
-				gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+        function readPixelsAsync(gl, width, height, buffer) {
+            return new Promise((resolve) => {
+                const bufpak = gl.createBuffer();
+                gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
+                gl.bufferData(gl.PIXEL_PACK_BUFFER, buffer.byteLength, gl.STREAM_READ);
+                gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
 
-				const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-				gl.flush();
+                const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+                gl.flush();
 
-				clientWaitAsync(gl, sync, 0, 10)
-					.then(() => {
-						gl.deleteSync(sync);
-						gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
-						gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, buffer);
-						gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-						gl.deleteBuffer(bufpak);
+                clientWaitAsync(gl, sync, 0, 10)
+                    .then(() => {
+                        gl.deleteSync(sync);
+                        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, bufpak);
+                        gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, buffer);
+                        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+                        gl.deleteBuffer(bufpak);
 
-						resolve(new Uint8Array(buffer));
-					});
-			});
-		}
+                        resolve(new Uint8Array(buffer));
+                    });
+            });
+        }
 
         function clientWaitAsync(gl, sync, flags = 0, interval_ms = 10) {
             return new Promise((resolve, reject) => {
@@ -222,4 +222,5 @@
         requestAnimationFrame(render);
     </script>
 </body>
+
 </html>
