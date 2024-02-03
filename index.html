@@ -5,12 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Webcam to Canvas with WebGL 1.0</title>
   </head>
+  <style>
+    .collapsible {
+    background-color: #777;
+    color: white;
+    cursor: pointer;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 15px;
+  }
+
+  .active, .collapsible:hover {
+    background-color: #555;
+  }
+
+  .content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    background-color: #f1f1f1;
+  }
+  </style>
 
   <body>
     <select id="videoSource"></select>
-    <!-- webcam; this shows you the live webcam input. 0 CPU hit-->
-    <!-- this is required (can be hidden) to grab the frames -->
-    <video id="webcam" autoplay playsinline></video>
+    <button type="button" class="collapsible">Open Raw Webcam</button>
+    <div class="content">
+      <!-- webcam; this shows you the live webcam input. 0 CPU hit-->
+      <!-- this is required (can be hidden) to grab the frames -->
+      <video id="webcam" autoplay playsinline></video>
+    </div>
+    
     <!-- width/height of outputCanvas are set by js -->
     <!-- outputCanvas is required for blitting final result.-->
     <!-- outputCanvas2 is just for debug. After outputCanvas, you can extract a uint8Array -->
@@ -19,4 +46,23 @@
     <!-- where the magic happens --> 
     <script type="text/javascript" src="js/main.js"></script>
   </body>
+
+  <script>
+    var coll = document.getElementsByClassName("collapsible");
+    var i;
+    
+    for (i = 0; i < coll.length; i++) {
+      coll[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var content = this.nextElementSibling;
+        if (content.style.maxHeight){
+          content.style.maxHeight = null;
+          this.innerHTML = "Open Raw Webcam";
+        } else {
+          content.style.maxHeight = "100%";
+          this.innerHTML = "Close Raw Webcam";
+        }
+      });
+    }
+    </script>
 </html>
