@@ -37,6 +37,19 @@ async function loadShaders() {
 }
 
 
+
+/*
+Set's a program's uniform value
+*/
+function set_program_uniform(gl, program, uniformName, valueType, value) {
+    const location = gl.getUniformLocation(program, uniformName);
+    if (valueType === gl.FLOAT) {
+        gl.uniform1f(location, value);
+    } else if (valueType === gl.INT) {
+        gl.uniform1i(location, value);
+    }
+}
+
 function runDemo(vertexSrc, fragmentSrc) {
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSrc);
     const fragmentShader = createShader(
@@ -46,7 +59,8 @@ function runDemo(vertexSrc, fragmentSrc) {
     );
 
     demoData.program = createProgram(gl, vertexShader, fragmentShader);
-    gl.useProgram(demoData.program);
+    gl.useProgram(demoData.program); // set the program we're setting constants on
+
     demoData.positionAttributeLocation = gl.getAttribLocation(
         demoData.program,
         "a_position"
@@ -55,6 +69,7 @@ function runDemo(vertexSrc, fragmentSrc) {
         demoData.program,
         "u_inputTexture"
     );
+
     demoData.inputSizeLocation = gl.getUniformLocation(
         demoData.program,
         "u_inputSize"
@@ -63,156 +78,38 @@ function runDemo(vertexSrc, fragmentSrc) {
         demoData.program,
         "u_outputSize"
     );
-    /* dump time*/
-    var setupModeLocation = gl.getUniformLocation(
-        demoData.program,
-        "setup_mode"
-    );
-    var fieldLeftXLocation = gl.getUniformLocation(
-        demoData.program,
-        "field_left_x"
-    );
-    var fieldRightXLocation = gl.getUniformLocation(
-        demoData.program,
-        "field_right_x"
-    );
-    var fieldTopYLocation = gl.getUniformLocation(
-        demoData.program,
-        "field_top_y"
-    );
-    var fieldBottomYLocation = gl.getUniformLocation(
-        demoData.program,
-        "field_bottom_y"
-    );
+    
+    const program = demoData.program;
+    // webgl doesnt let you put constants inside the fragment shader
+    // so we inject them here. You could also inject them via ui later :)
+    set_program_uniform(gl, program, "setup_mode", gl.INT, false);
+    set_program_uniform(gl, program, "field_left_x", gl.FLOAT, 62);
+    set_program_uniform(gl, program, "field_right_x", gl.FLOAT, 112.5);
+    set_program_uniform(gl, program, "field_top_y", gl.FLOAT, 40);
+    set_program_uniform(gl, program, "field_bottom_y", gl.FLOAT, 199);
+    set_program_uniform(gl, program, "stat_palette_white", gl.INT, true);
+    set_program_uniform(gl, program, "paletteA_x1", gl.FLOAT, 19);
+    set_program_uniform(gl, program, "paletteA_y1", gl.FLOAT, 102);
+    set_program_uniform(gl, program, "paletteA_x2", gl.FLOAT, 19);
+    set_program_uniform(gl, program, "paletteA_y2", gl.FLOAT, 157);
+    set_program_uniform(gl, program, "paletteB_x1", gl.FLOAT, 19);
+    set_program_uniform(gl, program, "paletteB_y1", gl.FLOAT, 119);
+    set_program_uniform(gl, program, "paletteB_x2", gl.FLOAT, 19);
+    set_program_uniform(gl, program, "paletteB_y2", gl.FLOAT, 172);
+    set_program_uniform(gl, program, "sharpen_preview", gl.INT, true);
+    set_program_uniform(gl, program, "preview_left_x", gl.FLOAT, 123);
+    set_program_uniform(gl, program, "preview_right_x", gl.FLOAT, 143);
+    set_program_uniform(gl, program, "preview_top_y", gl.FLOAT, 111);
+    set_program_uniform(gl, program, "preview_bottom_y", gl.FLOAT, 128);
+    set_program_uniform(gl, program, "skip_detect_game", gl.INT, false);
+    set_program_uniform(gl, program, "skip_detect_game_over", gl.INT, false);
+    set_program_uniform(gl, program, "game_black_x1", gl.FLOAT, 64);
+    set_program_uniform(gl, program, "game_black_y1", gl.FLOAT, 20);
+    set_program_uniform(gl, program, "game_black_x2", gl.FLOAT, 152);
+    set_program_uniform(gl, program, "game_black_y2", gl.FLOAT, 20);
+    set_program_uniform(gl, program, "game_grey_x1", gl.FLOAT, 23.5);
+    set_program_uniform(gl, program, "game_grey_y1", gl.FLOAT, 218.6);
 
-    var statPaletteWhiteLocation = gl.getUniformLocation(
-        demoData.program,
-        "stat_palette_white"
-    );
-
-    var paletteAX1Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteA_x1"
-    );
-    var paletteAY1Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteA_y1"
-    );
-    var paletteAX2Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteA_x2"
-    );
-    var paletteAY2Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteA_y2"
-    );
-
-    var paletteBX1Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteB_x1"
-    );
-    var paletteBY1Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteB_y1"
-    );
-    var paletteBX2Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteB_x2"
-    );
-    var paletteBY2Location = gl.getUniformLocation(
-        demoData.program,
-        "paletteB_y2"
-    );
-
-    var sharpenPreviewLocation = gl.getUniformLocation(
-        demoData.program,
-        "sharpen_preview"
-    );
-    var previewLeftXLocation = gl.getUniformLocation(
-        demoData.program,
-        "preview_left_x"
-    );
-    var previewRightXLocation = gl.getUniformLocation(
-        demoData.program,
-        "preview_right_x"
-    );
-    var previewTopYLocation = gl.getUniformLocation(
-        demoData.program,
-        "preview_top_y"
-    );
-    var previewBottomYLocation = gl.getUniformLocation(
-        demoData.program,
-        "preview_bottom_y"
-    );
-
-    var skipDetectGameLocation = gl.getUniformLocation(
-        demoData.program,
-        "skip_detect_game"
-    );
-    var skipDetectGameOverLocation = gl.getUniformLocation(
-        demoData.program,
-        "skip_detect_game_over"
-    );
-
-    var gameBlackX1Location = gl.getUniformLocation(
-        demoData.program,
-        "game_black_x1"
-    );
-    var gameBlackY1Location = gl.getUniformLocation(
-        demoData.program,
-        "game_black_y1"
-    );
-    var gameBlackX2Location = gl.getUniformLocation(
-        demoData.program,
-        "game_black_x2"
-    );
-    var gameBlackY2Location = gl.getUniformLocation(
-        demoData.program,
-        "game_black_y2"
-    );
-    var gameGreyX1Location = gl.getUniformLocation(
-        demoData.program,
-        "game_grey_x1"
-    );
-    var gameGreyY1Location = gl.getUniformLocation(
-        demoData.program,
-        "game_grey_y1"
-    );
-
-    // Set the uniform values
-    gl.uniform1i(setupModeLocation, 0); //setup mode true
-    gl.uniform1f(fieldLeftXLocation, 62);
-    gl.uniform1f(fieldRightXLocation, 112.5);
-    gl.uniform1f(fieldTopYLocation, 40);
-    gl.uniform1f(fieldBottomYLocation, 199);
-
-    gl.uniform1i(statPaletteWhiteLocation, true);
-
-    gl.uniform1f(paletteAX1Location, 19);
-    gl.uniform1f(paletteAY1Location, 102);
-    gl.uniform1f(paletteAX2Location, 19);
-    gl.uniform1f(paletteAY2Location, 157);
-
-    gl.uniform1f(paletteBX1Location, 19);
-    gl.uniform1f(paletteBY1Location, 119);
-    gl.uniform1f(paletteBX2Location, 19);
-    gl.uniform1f(paletteBY2Location, 172);
-
-    gl.uniform1i(sharpenPreviewLocation, true);
-    gl.uniform1f(previewLeftXLocation, 123);
-    gl.uniform1f(previewRightXLocation, 143);
-    gl.uniform1f(previewTopYLocation, 111);
-    gl.uniform1f(previewBottomYLocation, 128);
-
-    gl.uniform1i(skipDetectGameLocation, false);
-    gl.uniform1i(skipDetectGameOverLocation, false);
-
-    gl.uniform1f(gameBlackX1Location, 64);
-    gl.uniform1f(gameBlackY1Location, 20);
-    gl.uniform1f(gameBlackX2Location, 152);
-    gl.uniform1f(gameBlackY2Location, 20);
-    gl.uniform1f(gameGreyX1Location, 23.5);
-    gl.uniform1f(gameGreyY1Location, 218.6);
     /*end dump*/
     const positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
